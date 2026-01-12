@@ -171,7 +171,7 @@
             if (!link || !adbInstance) return alert("Kiểm tra lại kết nối và nội dung link!");
 
             try {
-                const cmd = `am start -a android.intent.action.VIEW -d "${link}"`;
+                const cmd = `am start -a android.intent.action.VIEW -d "${link} ticketbox.event.user.debug"`;
                 await adbInstance.shell(cmd);
 
                 const logDiv = document.getElementById('log');
