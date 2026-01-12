@@ -3,8 +3,10 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>QC ADB Tool - Final Fix</title>
+    <title>QC ADB Deep Link Pro</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/@yume-chan/adb@0.0.21/dist/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@yume-chan/adb-daemon-webusb@0.0.21/dist/index.js"></script>
     <style>
         body {
             font-family: -apple-system, sans-serif;
@@ -31,12 +33,13 @@
 
         .status {
             margin: 15px 0;
-            padding: 10px;
+            padding: 12px;
             border-radius: 8px;
             font-size: 13px;
             background: #fff3cd;
             color: #856404;
             font-weight: bold;
+            line-height: 1.4;
         }
 
         input {
@@ -66,10 +69,6 @@
             color: white;
         }
 
-        .btn-usb:hover {
-            background: #000;
-        }
-
         .btn-send {
             background: #28a745;
             color: white;
@@ -77,19 +76,16 @@
             margin-top: 10px;
         }
 
-        .btn-send:hover {
-            background: #218838;
-        }
-
         #log {
             font-size: 11px;
             text-align: left;
             color: #666;
             margin-top: 15px;
-            max-height: 100px;
-            overflow-y: auto;
             background: #fafafa;
             padding: 8px;
+            border-radius: 5px;
+            max-height: 80px;
+            overflow-y: auto;
         }
     </style>
 </head>
@@ -98,34 +94,35 @@
 
     <div class="container">
         <h2>ADB Deep Link Tool</h2>
-        <div id="status" class="status">Chưa kết nối thiết bị</div>
+        <div id="status" class="status">Vui lòng cắm cáp USB và bật 'Gỡ lỗi USB' trên điện thoại</div>
 
         <button class="btn-usb" id="connectBtn">🔌 KẾT NỐI QUA USB</button>
 
-        <div id="inputGroup" style="display: none; margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px;">
-            <input type="text" id="deeplink" placeholder="Nhập deeplink (vd: myapp://home)">
-            <button class="btn-send" id="sendBtn">🚀 BẮN DEEP LINK</button>
-            <div id="log">Lịch sử:</div>
+        <div id="controlPanel" style="display: none;">
+            <input type="text" id="deeplink" placeholder="Dán deeplink vào đây...">
+            <button class="btn-send" id="sendBtn" style="display: block;">🚀 BẮN DEEP LINK</button>
+            <div id="log">Lịch sử bắn link:</div>
         </div>
     </div>
 
     <script type="module">
-        // Import trực tiếp thư viện WebADB từ CDN ổn định
-        import Adb from 'https://cdn.jsdelivr.net/npm/@yume-chan/adb@latest/dist/index.js';
-        import { AdbDaemonWebUsbDeviceManager } from 'https://cdn.jsdelivr.net/npm/@yume-chan/adb-daemon-webusb@latest/dist/index.js';
+        // Import thư viện từ các nguồn CDN tin cậy
+        import { Adb } from 'https://cdn.jsdelivr.net/npm/@yume-chan/adb@0.0.21/dist/index.js';
+        import { AdbDaemonWebUsbDeviceManager } from 'https://cdn.jsdelivr.net/npm/@yume-chan/adb-daemon-webusb@0.0.21/dist/index.js';
 
         let adb;
         const statusDiv = document.getElementById('status');
-        const inputGroup = document.getElementById('inputGroup');
-        const sendBtn = document.getElementById('sendBtn');
+        const controlPanel = document.getElementById('controlPanel');
         const logDiv = document.getElementById('log');
 
-        // Gán sự kiện click bằng Javascript (Tránh lỗi ReferenceError trên HTML)
-        document.getElementById('connectBtn').addEventListener('click', async () => {
+        // Sự kiện kết nối
+        document.getElementById('connectBtn').onclick = async () => {
             try {
-                statusDiv.innerText = "Đang tìm thiết bị...";
-
                 const manager = AdbDaemonWebUsbDeviceManager.BROWSER;
+                if (!manager) {
+                    throw new Error("Trình duyệt không hỗ trợ WebUSB. Hãy dùng Chrome hoặc Edge.");
+                }
+
                 const device = await manager.requestDevice();
                 if (!device) return;
 
@@ -135,35 +132,34 @@
                 statusDiv.innerText = "✅ Đã kết nối: " + device.name;
                 statusDiv.style.background = "#d4edda";
                 statusDiv.style.color = "#155724";
-
-                inputGroup.style.display = "block";
-                sendBtn.style.display = "block";
+                controlPanel.style.display = "block";
             } catch (e) {
-                console.error(e);
                 statusDiv.innerText = "❌ Lỗi: " + e.message;
                 statusDiv.style.background = "#f8d7da";
                 statusDiv.style.color = "#721c24";
             }
-        });
+        };
 
-        document.getElementById('sendBtn').addEventListener('click', async () => {
-            const link = document.getElementById('deeplink').value;
-            if (!link || !adb) return;
+        // Sự kiện bắn link
+        document.getElementById('sendBtn').onclick = async () => {
+            const link = document.getElementById('deeplink').value.trim();
+            if (!link) return alert("Vui lòng nhập link!");
 
             try {
-                const cmd = `am start -a android.intent.action.VIEW -d "${link}"`;
+                // Lệnh ADB chuẩn để mở link
+                const command = `am start -a android.intent.action.VIEW -d "${link}"`;
+                const shell = await adb.subprocess.shell(command);
 
-                // Thực thi lệnh shell
-                const shell = await adb.subprocess.shell(cmd);
+                // Đợi lệnh chạy xong
+                await shell.exit;
 
-                // Log lịch sử
                 const time = new Date().toLocaleTimeString();
                 logDiv.innerHTML += `<br>[${time}] ${link}`;
-                alert("🚀 Đã gửi lệnh mở link!");
+                alert("🚀 Đã gửi lệnh thành công!");
             } catch (e) {
-                alert("Lỗi ADB: " + e.message);
+                alert("Lỗi thực thi ADB: " + e.message);
             }
-        });
+        };
     </script>
 
 </body>
