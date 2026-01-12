@@ -3,66 +3,62 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>QC ADB Deep Link Pro - Native</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QC Deep Link Tool - Fixed ADB</title>
+    <script src="https://unpkg.com/webadb@latest/dist/webadb.js"></script>
     <style>
         body {
-            font-family: -apple-system, sans-serif;
-            background: #f0f2f5;
+            font-family: sans-serif;
+            background: #f4f7f6;
             display: flex;
             justify-content: center;
-            padding: 20px;
+            padding: 40px;
         }
 
-        .container {
+        .card {
             background: white;
-            padding: 25px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 400px;
+            padding: 30px;
+            border-radius: 12px;
+            shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            width: 380px;
             text-align: center;
+            border: 1px solid #ddd;
         }
 
         h2 {
             color: #1a73e8;
-            margin-bottom: 20px;
+            margin-top: 0;
         }
 
         .status {
             margin: 15px 0;
-            padding: 12px;
-            border-radius: 8px;
+            padding: 10px;
+            border-radius: 6px;
             font-size: 13px;
+            font-weight: bold;
             background: #fff3cd;
             color: #856404;
-            font-weight: bold;
-            border: 1px solid #ffeeba;
         }
 
         input {
             width: 100%;
             padding: 12px;
             margin: 10px 0;
-            border: 1px solid #ddd;
-            border-radius: 8px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
             box-sizing: border-box;
-            font-size: 14px;
         }
 
         button {
             width: 100%;
             padding: 12px;
-            margin: 5px 0;
             border: none;
-            border-radius: 8px;
+            border-radius: 6px;
             cursor: pointer;
             font-weight: bold;
-            transition: 0.2s;
-            font-size: 14px;
+            margin-bottom: 8px;
         }
 
-        .btn-usb {
+        .btn-connect {
             background: #333;
             color: white;
         }
@@ -71,89 +67,62 @@
             background: #28a745;
             color: white;
             display: none;
-            margin-top: 10px;
-        }
-
-        #log {
-            font-size: 11px;
-            text-align: left;
-            color: #666;
-            margin-top: 15px;
-            background: #f8f9fa;
-            padding: 10px;
-            border-radius: 5px;
-            max-height: 100px;
-            overflow-y: auto;
         }
     </style>
 </head>
 
 <body>
 
-    <div class="container">
-        <h2>ADB Deep Link Tool</h2>
-        <div id="status" class="status">🔌 Vui lòng cắm cáp và nhấn kết nối</div>
+    <div class="card">
+        <h2>ADB Deep Link</h2>
+        <div id="status" class="status">Vui lòng kết nối USB</div>
 
-        <button class="btn-usb" id="btnConnect">KẾT NỐI QUA USB</button>
+        <button class="btn-connect" id="btnConnect">1. KẾT NỐI USB</button>
 
-        <div id="controlPanel" style="display: none;">
-            <input type="text" id="deeplink" placeholder="Dán deeplink (vd: myapp://home)">
-            <button class="btn-send" id="btnSend" style="display: block;">🚀 BẮN DEEP LINK</button>
-            <div id="log">Lịch sử:</div>
+        <div id="controlPanel" style="display:none">
+            <input type="text" id="deeplink" placeholder="Nhập link (vd: fb://feed)">
+            <button class="btn-send" id="btnSend">2. MỞ DEEP LINK</button>
         </div>
     </div>
 
     <script>
-        let device;
+        let adb;
+        let webadb = new WebADB(); // Khởi tạo đối tượng từ thư viện
 
-        // 1. Hàm kết nối thiết bị bằng WebUSB Native
+        // Bước 1: Kết nối và Handshake
         document.getElementById('btnConnect').onclick = async () => {
             const statusDiv = document.getElementById('status');
             try {
-                // Yêu cầu trình duyệt mở bảng chọn thiết bị Android
-                device = await navigator.usb.requestDevice({
-                    filters: [{ classCode: 255, subclassCode: 66, protocolCode: 1 }]
-                });
+                // navigator.usb.requestDevice nằm bên trong hàm connect() của thư viện
+                adb = await webadb.connect();
 
-                await device.open();
-                if (device.configuration === null) await device.selectConfiguration(1);
-                await device.claimInterface(0); // Chiếm quyền điều khiển interface ADB
-
-                statusDiv.innerText = "✅ Đã nhận thiết bị: " + device.productName;
+                statusDiv.innerText = "✅ Đã kết nối & Authenticated!";
                 statusDiv.style.background = "#d4edda";
                 statusDiv.style.color = "#155724";
                 document.getElementById('controlPanel').style.display = "block";
+                document.getElementById('btnSend').style.display = "block";
             } catch (err) {
                 console.error(err);
                 statusDiv.innerText = "❌ Lỗi: " + err.message;
                 statusDiv.style.background = "#f8d7da";
-                statusDiv.style.color = "#721c24";
             }
         };
 
-        // 2. Hàm gửi lệnh Shell (Mô phỏng gửi gói tin ADB cơ bản)
+        // Bước 2: Gửi lệnh Shell thực tế
         document.getElementById('btnSend').onclick = async () => {
             const link = document.getElementById('deeplink').value.trim();
-            if (!link) return alert("Vui lòng nhập link!");
+            if (!link) return alert("Chưa nhập link!");
 
             try {
-                // Lệnh ADB: am start -a android.intent.action.VIEW -d "link"
-                const cmd = `am start -a android.intent.action.VIEW -d "${link}"\n`;
-                const encoder = new TextEncoder();
-                const data = encoder.encode(cmd);
+                // Lệnh shell Android đầy đủ
+                const command = `am start -a android.intent.action.VIEW -d "${link}"`;
 
-                // Gửi dữ liệu qua Endpoint của ADB (thường là endpoint 1 hoặc 2 tùy máy)
-                // Lưu ý: Native WebUSB cần xử lý handshake ADB phức tạp, 
-                // nhưng với hầu hết các máy đã "Allow USB Debugging", lệnh này sẽ kích hoạt Activity.
+                // Gửi qua stream shell của ADB
+                await adb.shell(command);
 
-                // Ở bản native này, chúng ta sẽ thông báo thành công nếu không có lỗi USB xảy ra
-                const logDiv = document.getElementById('log');
-                const time = new Date().toLocaleTimeString();
-                logDiv.innerHTML += `<div>[${time}] ${link}</div>`;
-
-                alert("🚀 Đã gửi yêu cầu mở link tới điện thoại!");
+                alert("🚀 Đã bắn lệnh! Kiểm tra điện thoại.");
             } catch (err) {
-                alert("Lỗi USB: " + err.message);
+                alert("Lỗi khi gửi lệnh: " + err.message);
             }
         };
     </script>
