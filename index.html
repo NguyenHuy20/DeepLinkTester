@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <title>QC ADB Deep Link Pro</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://cdn.jsdelivr.net/gh/tangdt/webadb/dist/webadb.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/tangdt/webadb@master/dist/webadb.js"></script>
     <style>
         body {
             font-family: -apple-system, sans-serif;
@@ -99,27 +99,35 @@
 
         <div id="controlPanel" style="display: none;">
             <input type="text" id="deeplink" placeholder="Dán deeplink (vd: myapp://home)">
-            <button class="btn-send" id="btnSend" onclick="handleSend()" style="display: block;">🚀 BẮN DEEP
-                LINK</button>
+            <button class="btn-send" id="btnSend" onclick="handleSend()">🚀 BẮN DEEP LINK</button>
             <div id="log">Lịch sử:</div>
         </div>
     </div>
 
     <script>
-        let adb;
-        let webadb = new WebADB();
+        let adbInstance = null;
 
         async function handleConnect() {
             const statusDiv = document.getElementById('status');
+            statusDiv.innerText = "Đang kiểm tra trình duyệt...";
+
             try {
-                // Bước 1: Yêu cầu quyền truy cập USB
-                adb = await webadb.connect();
+                // Khởi tạo WebADB bên trong hàm để tránh lỗi Initialization
+                if (typeof WebADB === 'undefined') {
+                    throw new Error("Thư viện chưa tải xong. Vui lòng F5 trang.");
+                }
+
+                const webadb = new WebADB();
+
+                // Bước 1: Yêu cầu quyền truy cập USB và kết nối
+                adbInstance = await webadb.connect();
 
                 // Bước 2: Hiển thị trạng thái thành công
                 statusDiv.innerText = "✅ Đã kết nối thiết bị!";
                 statusDiv.style.background = "#d4edda";
                 statusDiv.style.color = "#155724";
                 document.getElementById('controlPanel').style.display = "block";
+                document.getElementById('btnSend').style.display = "block";
             } catch (e) {
                 console.error(e);
                 statusDiv.innerText = "❌ Lỗi: " + e.message;
@@ -131,15 +139,24 @@
         async function handleSend() {
             const link = document.getElementById('deeplink').value.trim();
             const logDiv = document.getElementById('log');
-            if (!link) return alert("Vui lòng nhập link!");
+
+            if (!link) {
+                alert("Vui lòng nhập link!");
+                return;
+            }
+            if (!adbInstance) {
+                alert("Thiết bị chưa được kết nối!");
+                return;
+            }
 
             try {
                 // Lệnh ADB chuẩn để mở link
                 const cmd = `am start -a android.intent.action.VIEW -d "${link}"`;
-                await adb.shell(cmd);
+                await adbInstance.shell(cmd);
 
                 const time = new Date().toLocaleTimeString();
                 logDiv.innerHTML += `<div>[${time}] ${link}</div>`;
+                logDiv.scrollTop = logDiv.scrollHeight;
                 alert("🚀 Đã bắn link thành công!");
             } catch (e) {
                 alert("Lỗi thực thi: " + e.message);
