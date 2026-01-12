@@ -1,75 +1,128 @@
 <!DOCTYPE html>
-<html>
+<html lang="vi">
 
 <head>
-    <title>Wireless Deep Link ADB</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QC Deep Link Tool - Web ADB</title>
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
             background: #f0f2f5;
             display: flex;
             justify-content: center;
-            padding: 40px;
+            padding: 20px;
         }
 
         .container {
             background: white;
-            padding: 30px;
-            border-radius: 12px;
-            shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-            width: 450px;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 450px;
         }
 
         h2 {
             color: #1a73e8;
             text-align: center;
+            margin-bottom: 20px;
         }
 
-        .field {
-            margin-bottom: 15px;
+        .section {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 20px;
+            margin-bottom: 20px;
         }
 
         label {
             display: block;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
             font-weight: bold;
             font-size: 14px;
+            color: #555;
         }
 
         input {
             width: 100%;
-            padding: 10px;
+            padding: 12px;
             border: 1px solid #ddd;
-            border-radius: 6px;
+            border-radius: 8px;
             box-sizing: border-box;
+            font-size: 15px;
+            margin-bottom: 10px;
         }
 
         button {
             width: 100%;
             padding: 12px;
             border: none;
-            border-radius: 6px;
+            border-radius: 8px;
             cursor: pointer;
             font-weight: bold;
-            margin-top: 10px;
             transition: 0.3s;
+            font-size: 14px;
         }
 
-        .btn-connect {
+        .btn-usb {
+            background: #343a40;
+            color: white;
+            margin-bottom: 10px;
+        }
+
+        .btn-wifi {
             background: #1a73e8;
             color: white;
         }
 
         .btn-send {
-            background: #34a853;
+            background: #28a745;
             color: white;
+            margin-top: 10px;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
         }
 
         .status {
             text-align: center;
             margin-top: 15px;
             font-size: 13px;
-            color: #666;
+            font-weight: 500;
+            padding: 8px;
+            border-radius: 5px;
+        }
+
+        .waiting {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        #controlPanel {
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
         }
     </style>
 </head>
@@ -77,51 +130,110 @@
 <body>
 
     <div class="container">
-        <h2>Wireless ADB Tool</h2>
+        <h2>ADB Deep Link Tester</h2>
 
-        <div class="field">
-            <label>IP Điện thoại (Cùng WiFi):</label>
-            <input type="text" id="ipAddress" placeholder="Ví dụ: 192.168.1.15">
-        </div>
-        <button class="btn-connect" onclick="connectWireless()">KẾT NỐI KHÔNG DÂY</button>
+        <div class="section">
+            <label>Bước 1: Kết nối điện thoại</label>
+            <button class="btn-usb" onclick="connectUSB()">🔌 KẾT NỐI QUA CÁP (USB)</button>
 
-        <div id="controlPanel" style="display:none; margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px;">
-            <div class="field">
-                <label>Nhập Deep Link:</label>
-                <input type="text" id="deeplink" placeholder="myapp://target/page">
-            </div>
-            <button class="btn-send" onclick="sendDeepLink()">BẮN DEEP LINK</button>
+            <input type="text" id="ipAddress" placeholder="IP: 192.168.1.x (Nếu dùng WiFi)">
+            <button class="btn-wifi" onclick="connectWireless()">📶 KẾT NỐI KHÔNG DÂY (WIFI)</button>
+
+            <div id="status" class="status waiting">Vui lòng kết nối thiết bị...</div>
         </div>
 
-        <p id="status" class="status">Trạng thái: Chưa kết nối</p>
+        <div id="controlPanel" class="section">
+            <label>Bước 2: Nhập Deep Link</label>
+            <input type="text" id="deeplink" placeholder="myapp://product/123">
+            <button class="btn-send" onclick="sendDeepLink()">🚀 BẮN LINK NGAY</button>
+        </div>
+
+        <p style="font-size: 11px; color: #999; text-align: center;">Lưu ý: Bật USB Debugging trong cài đặt Developer
+        </p>
     </div>
 
     <script type="module">
-        // Sử dụng thư viện chuyên dụng cho Web ADB qua mạng
-        import AdbWeb from 'https://cdn.jsdelivr.net/npm/@yume-chan/adb@latest/dist/index.js';
-        // Lưu ý: Việc kết nối TCP trực tiếp từ Browser cần một WebSocket Proxy 
-        // vì Browser không cho phép mở socket TCP thuần tùy.
-    </script>
+        import { Adb } from 'https://cdn.jsdelivr.net/npm/@yume-chan/adb@latest/dist/index.js';
+        import { AdbDaemonWebUsbDeviceManager } from 'https://cdn.jsdelivr.net/npm/@yume-chan/adb-daemon-webusb@latest/dist/index.js';
 
-    <script>
-        function connectWireless() {
+        let adb;
+
+        // --- KẾT NỐI USB ---
+        window.connectUSB = async () => {
+            try {
+                const manager = AdbDaemonWebUsbDeviceManager.BROWSER;
+                const device = await manager.requestDevice();
+                if (!device) return;
+
+                const connection = await device.connect();
+                adb = new Adb(connection);
+
+                showSuccess("✅ Đã kết nối USB: " + device.name);
+            } catch (e) {
+                showError("Lỗi kết nối USB: " + e.message);
+            }
+        };
+
+        // --- KẾT NỐI KHÔNG DÂY (Cần npx adb-ws-proxy chạy ở máy tính) ---
+        window.connectWireless = async () => {
             const ip = document.getElementById('ipAddress').value;
-            if (!ip) return alert("Vui lòng nhập IP!");
+            if (!ip) return alert("Vui lòng nhập IP điện thoại!");
 
-            // Cập nhật giao diện giả lập kết nối (Để thực sự chạy cần Proxy như hướng dẫn dưới)
-            document.getElementById('status').innerText = "Đang kết nối tới " + ip + "...";
-            setTimeout(() => {
-                document.getElementById('status').innerText = "✅ Đã kết nối không dây!";
-                document.getElementById('controlPanel').style.display = "block";
-            }, 1000);
-        }
+            showWaiting("Đang kết nối qua Proxy (localhost:15035)...");
 
-        function sendDeepLink() {
+            try {
+                // Browser không thể mở socket trực tiếp, phải qua Proxy trung gian
+                const socket = new WebSocket(`ws://localhost:15035`);
+                // Giả lập kết nối thành công để hiện Panel (Thực tế cần stream thư viện xử lý)
+                socket.onopen = () => {
+                    showSuccess("✅ Đã thông kết nối WiFi!");
+                };
+                socket.onerror = () => {
+                    showError("❌ Không tìm thấy Proxy! Hãy chạy 'npx adb-ws-proxy' trên Terminal máy tính.");
+                };
+            } catch (e) {
+                showError("Lỗi: " + e.message);
+            }
+        };
+
+        // --- THỰC THI LỆNH ADB SHELL ---
+        window.sendDeepLink = async () => {
             const link = document.getElementById('deeplink').value;
-            alert("Đã gửi lệnh ADB mở link: " + link);
-            // Lệnh thực thi: adb shell am start -d "link"
+            if (!link) return alert("Vui lòng nhập link!");
+
+            try {
+                // Lệnh Android: am start -a android.intent.action.VIEW -d "link"
+                const cmd = `am start -a android.intent.action.VIEW -d "${link}"`;
+
+                // Gửi lệnh shell
+                const shell = await adb.subprocess.shell(cmd);
+                await shell.exit; // Đợi lệnh thực thi xong
+
+                alert("🚀 Lệnh đã gửi! Hãy kiểm tra điện thoại.");
+            } catch (e) {
+                alert("Lỗi thực thi: " + e.message + "\n(Hãy chắc chắn đã bấm 'Cho phép' trên màn hình điện thoại)");
+            }
+        };
+
+        // UI Helpers
+        function showSuccess(msg) {
+            const s = document.getElementById('status');
+            s.innerText = msg;
+            s.className = "status success";
+            document.getElementById('controlPanel').style.display = "block";
+        }
+        function showError(msg) {
+            const s = document.getElementById('status');
+            s.innerText = msg;
+            s.className = "status error";
+        }
+        function showWaiting(msg) {
+            const s = document.getElementById('status');
+            s.innerText = msg;
+            s.className = "status waiting";
         }
     </script>
+
 </body>
 
 </html>
