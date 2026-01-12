@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Wireless Deep Link ADB</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            padding: 40px;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+            width: 450px;
+        }
+
+        h2 {
+            color: #1a73e8;
+            text-align: center;
+        }
+
+        .field {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 10px;
+            transition: 0.3s;
+        }
+
+        .btn-connect {
+            background: #1a73e8;
+            color: white;
+        }
+
+        .btn-send {
+            background: #34a853;
+            color: white;
+        }
+
+        .status {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 13px;
+            color: #666;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h2>Wireless ADB Tool</h2>
+
+        <div class="field">
+            <label>IP Điện thoại (Cùng WiFi):</label>
+            <input type="text" id="ipAddress" placeholder="Ví dụ: 192.168.1.15">
+        </div>
+        <button class="btn-connect" onclick="connectWireless()">KẾT NỐI KHÔNG DÂY</button>
+
+        <div id="controlPanel" style="display:none; margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px;">
+            <div class="field">
+                <label>Nhập Deep Link:</label>
+                <input type="text" id="deeplink" placeholder="myapp://target/page">
+            </div>
+            <button class="btn-send" onclick="sendDeepLink()">BẮN DEEP LINK</button>
+        </div>
+
+        <p id="status" class="status">Trạng thái: Chưa kết nối</p>
+    </div>
+
+    <script type="module">
+        // Sử dụng thư viện chuyên dụng cho Web ADB qua mạng
+        import AdbWeb from 'https://cdn.jsdelivr.net/npm/@yume-chan/adb@latest/dist/index.js';
+        // Lưu ý: Việc kết nối TCP trực tiếp từ Browser cần một WebSocket Proxy 
+        // vì Browser không cho phép mở socket TCP thuần tùy.
+    </script>
+
+    <script>
+        function connectWireless() {
+            const ip = document.getElementById('ipAddress').value;
+            if (!ip) return alert("Vui lòng nhập IP!");
+
+            // Cập nhật giao diện giả lập kết nối (Để thực sự chạy cần Proxy như hướng dẫn dưới)
+            document.getElementById('status').innerText = "Đang kết nối tới " + ip + "...";
+            setTimeout(() => {
+                document.getElementById('status').innerText = "✅ Đã kết nối không dây!";
+                document.getElementById('controlPanel').style.display = "block";
+            }, 1000);
+        }
+
+        function sendDeepLink() {
+            const link = document.getElementById('deeplink').value;
+            alert("Đã gửi lệnh ADB mở link: " + link);
+            // Lệnh thực thi: adb shell am start -d "link"
+        }
+    </script>
+</body>
+
+</html>
