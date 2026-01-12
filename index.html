@@ -3,9 +3,8 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>QC ADB Deep Link Pro - Fixed</title>
+    <title>QC ADB Tool - Final Fix</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://cdn.jsdelivr.net/npm/adb-web@latest/dist/adb-web.min.js"></script>
     <style>
         body {
             font-family: -apple-system, sans-serif;
@@ -27,6 +26,17 @@
 
         h2 {
             color: #1a73e8;
+            margin-bottom: 20px;
+        }
+
+        .status {
+            margin: 15px 0;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 13px;
+            background: #fff3cd;
+            color: #856404;
+            font-weight: bold;
         }
 
         input {
@@ -36,6 +46,7 @@
             border: 1px solid #ddd;
             border-radius: 8px;
             box-sizing: border-box;
+            font-size: 14px;
         }
 
         button {
@@ -47,10 +58,7 @@
             cursor: pointer;
             font-weight: bold;
             transition: 0.2s;
-        }
-
-        button:active {
-            transform: scale(0.98);
+            font-size: 14px;
         }
 
         .btn-usb {
@@ -58,32 +66,30 @@
             color: white;
         }
 
+        .btn-usb:hover {
+            background: #000;
+        }
+
         .btn-send {
             background: #28a745;
             color: white;
             display: none;
-            margin-top: 15px;
-        }
-
-        #status {
-            margin: 15px 0;
-            padding: 10px;
-            border-radius: 5px;
-            font-size: 13px;
-            background: #fff3cd;
-            color: #856404;
-        }
-
-        .history {
-            text-align: left;
-            font-size: 12px;
-            color: #666;
-            background: #f9f9f9;
-            padding: 10px;
-            border-radius: 5px;
             margin-top: 10px;
-            max-height: 80px;
+        }
+
+        .btn-send:hover {
+            background: #218838;
+        }
+
+        #log {
+            font-size: 11px;
+            text-align: left;
+            color: #666;
+            margin-top: 15px;
+            max-height: 100px;
             overflow-y: auto;
+            background: #fafafa;
+            padding: 8px;
         }
     </style>
 </head>
@@ -92,62 +98,72 @@
 
     <div class="container">
         <h2>ADB Deep Link Tool</h2>
-        <div id="status">Chờ kết nối qua USB...</div>
+        <div id="status" class="status">Chưa kết nối thiết bị</div>
 
-        <button class="btn-usb" onclick="connectUSB()">🔌 KẾT NỐI QUA USB</button>
+        <button class="btn-usb" id="connectBtn">🔌 KẾT NỐI QUA USB</button>
 
-        <div id="controlPanel" style="display: none;">
-            <input type="text" id="deeplink" placeholder="Nhập deeplink (vd: fb://feed)">
-            <button class="btn-send" id="btnSend" onclick="sendDeepLink()" style="display: block;">🚀 BẮN DEEP
-                LINK</button>
-            <div class="history" id="history">Lịch sử: <br></div>
+        <div id="inputGroup" style="display: none; margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px;">
+            <input type="text" id="deeplink" placeholder="Nhập deeplink (vd: myapp://home)">
+            <button class="btn-send" id="sendBtn">🚀 BẮN DEEP LINK</button>
+            <div id="log">Lịch sử:</div>
         </div>
     </div>
 
-    <script>
-        let adbDevice;
+    <script type="module">
+        // Import trực tiếp thư viện WebADB từ CDN ổn định
+        import Adb from 'https://cdn.jsdelivr.net/npm/@yume-chan/adb@latest/dist/index.js';
+        import { AdbDaemonWebUsbDeviceManager } from 'https://cdn.jsdelivr.net/npm/@yume-chan/adb-daemon-webusb@latest/dist/index.js';
 
-        // Hàm kết nối USB
-        async function connectUSB() {
-            const statusDiv = document.getElementById('status');
+        let adb;
+        const statusDiv = document.getElementById('status');
+        const inputGroup = document.getElementById('inputGroup');
+        const sendBtn = document.getElementById('sendBtn');
+        const logDiv = document.getElementById('log');
+
+        // Gán sự kiện click bằng Javascript (Tránh lỗi ReferenceError trên HTML)
+        document.getElementById('connectBtn').addEventListener('click', async () => {
             try {
-                // WebUSB API
-                const device = await navigator.usb.requestDevice({ filters: [{ classCode: 255, subclassCode: 66, protocolCode: 1 }] });
+                statusDiv.innerText = "Đang tìm thiết bị...";
 
-                // Khởi tạo ADB qua thiết bị USB vừa chọn
-                adbDevice = new AdbWeb(device);
-                await adbDevice.connect();
+                const manager = AdbDaemonWebUsbDeviceManager.BROWSER;
+                const device = await manager.requestDevice();
+                if (!device) return;
 
-                statusDiv.innerText = "✅ Đã kết nối: " + device.productName;
+                const connection = await device.connect();
+                adb = new Adb(connection);
+
+                statusDiv.innerText = "✅ Đã kết nối: " + device.name;
                 statusDiv.style.background = "#d4edda";
                 statusDiv.style.color = "#155724";
-                document.getElementById('controlPanel').style.display = "block";
+
+                inputGroup.style.display = "block";
+                sendBtn.style.display = "block";
             } catch (e) {
                 console.error(e);
-                statusDiv.innerText = "❌ Lỗi: " + (e.message.includes("no device") ? "Chưa chọn thiết bị" : e.message);
+                statusDiv.innerText = "❌ Lỗi: " + e.message;
                 statusDiv.style.background = "#f8d7da";
                 statusDiv.style.color = "#721c24";
             }
-        }
+        });
 
-        // Hàm gửi Deep Link
-        async function sendDeepLink() {
+        document.getElementById('sendBtn').addEventListener('click', async () => {
             const link = document.getElementById('deeplink').value;
-            const history = document.getElementById('history');
-            if (!link || !adbDevice) return;
+            if (!link || !adb) return;
 
             try {
-                // Lệnh shell mở deeplink
                 const cmd = `am start -a android.intent.action.VIEW -d "${link}"`;
-                await adbDevice.shell(cmd);
 
+                // Thực thi lệnh shell
+                const shell = await adb.subprocess.shell(cmd);
+
+                // Log lịch sử
                 const time = new Date().toLocaleTimeString();
-                history.innerHTML += `[${time}] ${link}<br>`;
-                alert("🚀 Đã bắn link thành công!");
+                logDiv.innerHTML += `<br>[${time}] ${link}`;
+                alert("🚀 Đã gửi lệnh mở link!");
             } catch (e) {
                 alert("Lỗi ADB: " + e.message);
             }
-        }
+        });
     </script>
 
 </body>
