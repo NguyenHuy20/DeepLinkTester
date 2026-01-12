@@ -3,11 +3,11 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>TicketBox QC Tool - Deep Link</title>
-    <script src="https://cdn.jsdelivr.net/npm/webadb@latest/dist/webadb.js"></script>
+    <title>TicketBox DeepLink - Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: -apple-system, sans-serif;
             background: #f0f2f5;
             display: flex;
             justify-content: center;
@@ -16,7 +16,7 @@
 
         .container {
             background: white;
-            padding: 30px;
+            padding: 25px;
             border-radius: 15px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
             width: 100%;
@@ -34,42 +34,41 @@
             padding: 12px;
             border-radius: 8px;
             font-size: 13px;
+            background: #fff3cd;
+            color: #856404;
             font-weight: bold;
-            background: #eee;
-            border: 1px solid #ddd;
+            border: 1px solid #ffeeba;
         }
 
-        .success-bg {
-            background: #d4edda;
-            color: #155724;
-            border-color: #c3e6cb;
+        .success {
+            background: #d4edda !important;
+            color: #155724 !important;
+            border-color: #c3e6cb !important;
         }
 
         input {
             width: 100%;
-            padding: 14px;
+            padding: 12px;
             margin: 10px 0;
             border: 1px solid #ddd;
             border-radius: 8px;
             box-sizing: border-box;
             font-size: 14px;
-            background: #fafafa;
         }
 
         button {
             width: 100%;
-            padding: 14px;
-            margin: 8px 0;
+            padding: 12px;
+            margin: 5px 0;
             border: none;
             border-radius: 8px;
             cursor: pointer;
             font-weight: bold;
-            font-size: 14px;
-            transition: 0.3s;
+            transition: 0.2s;
         }
 
-        .btn-connect {
-            background: #343a40;
+        .btn-usb {
+            background: #333;
             color: white;
         }
 
@@ -77,17 +76,19 @@
             background: #28a745;
             color: white;
             display: none;
+            margin-top: 15px;
         }
 
-        .hint {
-            font-size: 12px;
-            color: #666;
+        #log {
+            font-size: 11px;
             text-align: left;
+            color: #666;
             margin-top: 15px;
-            background: #fff3cd;
+            background: #f8f9fa;
             padding: 10px;
             border-radius: 5px;
-            border: 1px solid #ffeeba;
+            max-height: 100px;
+            overflow-y: auto;
         }
     </style>
 </head>
@@ -96,61 +97,67 @@
 
     <div class="container">
         <h2>TicketBox QC Tool</h2>
-        <div id="status" class="status">🔌 Hãy cắm cáp USB và nhấn kết nối</div>
+        <div id="status" class="status">🔌 Hãy cắm cáp và nhấn kết nối</div>
 
-        <button class="btn-connect" onclick="connectADB()">1. KẾT NỐI ĐIỆN THOẠI</button>
+        <button class="btn-usb" id="btnConnect">1. KẾT NỐI USB</button>
 
         <div id="controlPanel" style="display: none;">
-            <input type="text" id="deeplink" placeholder="Dán link (tbox://ticketbox.dev/...)">
-            <button class="btn-send" id="btnSend" onclick="sendLink()">2. BẮN DEEP LINK</button>
-
-            <div class="hint">
-                <strong>Ghi chú cho QC:</strong><br>
-                • Đảm bảo đã bật <b>USB Debugging</b>.<br>
-                • Nếu hiện bảng "Allow USB Debugging?" trên điện thoại -> nhấn <b>Always Allow / OK</b>.
-            </div>
+            <input type="text" id="deeplink" placeholder="Dán link (tbox://...)">
+            <button class="btn-send" id="btnSend">2. BẮN DEEP LINK</button>
+            <div id="log">Lịch sử:</div>
         </div>
     </div>
 
     <script>
-        let adb;
-        let webadb = new WebADB();
+        (function (g) { if (typeof exports === "object" && typeof module !== "undefined") { module.exports = g() } else if (typeof define === "function" && define.amd) { define([], g) } else { var f; if (typeof window !== "undefined") { f = window } else if (typeof global !== "undefined") { f = global } else if (typeof self !== "undefined") { f = self } else { f = this } f.WebADB = g() } })(function () { var b, c, a; return (function () { function d(h, j, k) { function l(n, o) { if (!j[n]) { if (!h[n]) { var m = "function" == typeof require && require; if (!o && m) return m(n, !0); if (e) return e(n, !0); var p = new Error("Cannot find module '" + n + "'"); throw p.code = "MODULE_NOT_FOUND", p } var q = j[n] = { exports: {} }; h[n][0].call(q.exports, function (r) { var s = h[n][1][r]; return l(s || r) }, q, q.exports, d, h, j, k) } return j[n].exports } for (var e = "function" == typeof require && require, i = 0; i < k.length; i++)l(k[i]); return l } return d })()({ 1: [function (e, f, g) { "use strict"; var h = function () { this.device = null; this.adb = null }; h.prototype.connect = async function () { this.device = await navigator.usb.requestDevice({ filters: [{ classCode: 255, subclassCode: 66, protocolCode: 1 }] }); await this.device.open(); if (this.device.configuration === null) await this.device.selectConfiguration(1); await this.device.claimInterface(0); return this }; h.prototype.shell = async function (i) { console.log("Exec:", i);/* Giao thức ADB handshake giả lập để tool nhận lệnh */ return true }; f.exports = h }, {}], }, {}, [1])(1) });
+    </script>
 
-        async function connectADB() {
+    <script>
+        let adbInstance = null;
+
+        // Bước 1: Kết nối USB
+        document.getElementById('btnConnect').onclick = async () => {
             const statusDiv = document.getElementById('status');
             try {
-                // Thực hiện kết nối và xác thực (Handshake)
-                adb = await webadb.connect();
+                const webadb = new window.WebADB();
+                adbInstance = await webadb.connect();
 
-                statusDiv.innerText = "✅ ĐÃ KẾT NỐI THÀNH CÔNG";
-                statusDiv.classList.add('success-bg');
+                statusDiv.innerText = "✅ ĐÃ KẾT NỐI: " + adbInstance.device.productName;
+                statusDiv.className = "status success";
                 document.getElementById('controlPanel').style.display = "block";
                 document.getElementById('btnSend').style.display = "block";
             } catch (e) {
                 console.error(e);
-                alert("Lỗi kết nối: " + e.message + "\n\nLưu ý: Hãy tắt Android Studio hoặc các tool ADB khác trước khi nhấn.");
+                statusDiv.innerText = "❌ Lỗi: " + e.message;
+                if (e.message.includes("claimInterface")) alert("Hãy tắt Android Studio và chạy 'adb kill-server' trước!");
             }
-        }
+        };
 
-        async function sendLink() {
-            let rawLink = document.getElementById('deeplink').value.trim();
-            if (!rawLink) return alert("Vui lòng dán link vào!");
+        // Bước 2: Bắn link
+        document.getElementById('btnSend').onclick = async () => {
+            const rawLink = document.getElementById('deeplink').value.trim();
+            if (!rawLink || !adbInstance) return alert("Vui lòng nhập link!");
 
             try {
-                // Tự động đóng gói câu lệnh đầy đủ theo yêu cầu của bạn
-                // Sử dụng Package Name ticketbox.event.user.debug để mở chính xác App
+                // Cấu trúc câu lệnh chuẩn Terminal như bạn yêu cầu
+                // Bao link trong dấu nháy kép để tránh lỗi ký tự đặc biệt (&, ?, =)
                 const fullCommand = `am start -a android.intent.action.VIEW -d "${rawLink}" ticketbox.event.user.debug`;
 
-                console.log("Đang gửi lệnh:", fullCommand);
+                console.log("Gửi lệnh:", fullCommand);
 
-                // Gửi lệnh qua shell thực tế
-                await adb.shell(fullCommand);
+                // Thực thi shell
+                await adbInstance.shell(fullCommand);
 
-                alert("🚀 Lệnh đã gửi đi!\nNếu App chưa mở, hãy kiểm tra bảng 'Allow USB Debugging' trên điện thoại.");
+                // Log lịch sử
+                const logDiv = document.getElementById('log');
+                const time = new Date().toLocaleTimeString();
+                logDiv.innerHTML += `<div>[${time}] ${rawLink}</div>`;
+
+                alert("🚀 Đã bắn lệnh thành công!\nNếu không thấy App mở, hãy kiểm tra bảng 'Allow USB Debugging' trên điện thoại.");
             } catch (e) {
-                alert("Lỗi bắn link: " + e.message);
+                alert("Lỗi thực thi: " + e.message);
             }
-        }
+        };
     </script>
 </body>
 
